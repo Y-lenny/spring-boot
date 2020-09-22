@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.springframework.boot.loader.data;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -27,12 +28,11 @@ import java.io.RandomAccessFile;
  *
  * @author Phillip Webb
  * @author Andy Wilkinson
+ * @since 1.0.0
  */
 public class RandomAccessDataFile implements RandomAccessData {
 
-	private final File file;
-
-	private final RandomAccessFile randomAccessFile;
+	private final FileAccess fileAccess;
 
 	private final long offset;
 
@@ -47,31 +47,21 @@ public class RandomAccessDataFile implements RandomAccessData {
 		if (file == null) {
 			throw new IllegalArgumentException("File must not be null");
 		}
-		try {
-			this.randomAccessFile = new RandomAccessFile(file, "r");
-		}
-		catch (FileNotFoundException ex) {
-			throw new IllegalArgumentException(
-					String.format("File %s must exist", file.getAbsolutePath()));
-		}
-		this.file = file;
+		this.fileAccess = new FileAccess(file);
 		this.offset = 0L;
 		this.length = file.length();
 	}
 
 	/**
 	 * Private constructor used to create a {@link #getSubsection(long, long) subsection}.
-	 * @param file the underlying file
-	 * @param randomAccessFile the random access file from which data is read
+	 * @param fileAccess provides access to the underlying file
 	 * @param offset the offset of the section
 	 * @param length the length of the section
 	 */
-	private RandomAccessDataFile(File file, RandomAccessFile randomAccessFile,
-			long offset, long length) {
-		this.file = file;
+	private RandomAccessDataFile(FileAccess fileAccess, long offset, long length) {
+		this.fileAccess = fileAccess;
 		this.offset = offset;
 		this.length = length;
-		this.randomAccessFile = randomAccessFile;
 	}
 
 	/**
@@ -79,12 +69,12 @@ public class RandomAccessDataFile implements RandomAccessData {
 	 * @return the underlying file
 	 */
 	public File getFile() {
-		return this.file;
+		return this.fileAccess.file;
 	}
 
 	@Override
 	public InputStream getInputStream() throws IOException {
-		return new DataInputStream(this.randomAccessFile);
+		return new DataInputStream();
 	}
 
 	@Override
@@ -92,8 +82,7 @@ public class RandomAccessDataFile implements RandomAccessData {
 		if (offset < 0 || length < 0 || offset + length > this.length) {
 			throw new IndexOutOfBoundsException();
 		}
-		return new RandomAccessDataFile(this.file, this.randomAccessFile,
-				this.offset + offset, length);
+		return new RandomAccessDataFile(this.fileAccess, this.offset + offset, length);
 	}
 
 	@Override
@@ -103,12 +92,29 @@ public class RandomAccessDataFile implements RandomAccessData {
 
 	@Override
 	public byte[] read(long offset, long length) throws IOException {
-		byte[] bytes = new byte[(int) length];
-		synchronized (this.randomAccessFile) {
-			this.randomAccessFile.seek(this.offset + offset);
-			this.randomAccessFile.read(bytes, 0, (int) length);
+		if (offset > this.length) {
+			throw new IndexOutOfBoundsException();
 		}
+		if (offset + length > this.length) {
+			throw new EOFException();
+		}
+		byte[] bytes = new byte[(int) length];
+		read(bytes, offset, 0, bytes.length);
 		return bytes;
+	}
+
+	private int readByte(long position) throws IOException {
+		if (position >= this.length) {
+			return -1;
+		}
+		return this.fileAccess.readByte(this.offset + position);
+	}
+
+	private int read(byte[] bytes, long position, int offset, int length) throws IOException {
+		if (position > this.length) {
+			return -1;
+		}
+		return this.fileAccess.read(bytes, this.offset + position, offset, length);
 	}
 
 	@Override
@@ -117,31 +123,28 @@ public class RandomAccessDataFile implements RandomAccessData {
 	}
 
 	public void close() throws IOException {
-
+		this.fileAccess.close();
 	}
 
 	/**
-	 * {@link RandomAccessDataInputStream} implementation for the
-	 * {@link RandomAccessDataFile}.
+	 * {@link InputStream} implementation for the {@link RandomAccessDataFile}.
 	 */
 	private class DataInputStream extends InputStream {
 
-		private RandomAccessFile file;
-
 		private int position;
-
-		DataInputStream(RandomAccessFile file) throws IOException {
-			this.file = file;
-		}
 
 		@Override
 		public int read() throws IOException {
-			return doRead(null, 0, 1);
+			int read = RandomAccessDataFile.this.readByte(this.position);
+			if (read > -1) {
+				moveOn(1);
+			}
+			return read;
 		}
 
 		@Override
 		public int read(byte[] b) throws IOException {
-			return read(b, 0, b == null ? 0 : b.length);
+			return read(b, 0, (b != null) ? b.length : 0);
 		}
 
 		@Override
@@ -161,7 +164,7 @@ public class RandomAccessDataFile implements RandomAccessData {
 		 * {@code b} is {@code null}. Returns -1 when the end of the stream is reached
 		 * @throws IOException in case of I/O errors
 		 */
-		public int doRead(byte[] b, int off, int len) throws IOException {
+		int doRead(byte[] b, int off, int len) throws IOException {
 			if (len == 0) {
 				return 0;
 			}
@@ -169,22 +172,12 @@ public class RandomAccessDataFile implements RandomAccessData {
 			if (cappedLen <= 0) {
 				return -1;
 			}
-			synchronized (this.file) {
-				this.file.seek(RandomAccessDataFile.this.offset + this.position);
-				if (b == null) {
-					int rtn = this.file.read();
-					moveOn(rtn == -1 ? 0 : 1);
-					return rtn;
-				}
-				else {
-					return (int) moveOn(this.file.read(b, off, cappedLen));
-				}
-			}
+			return (int) moveOn(RandomAccessDataFile.this.read(b, this.position, off, cappedLen));
 		}
 
 		@Override
 		public long skip(long n) throws IOException {
-			return (n <= 0 ? 0 : moveOn(cap(n)));
+			return (n <= 0) ? 0 : moveOn(cap(n));
 		}
 
 		/**
@@ -205,6 +198,58 @@ public class RandomAccessDataFile implements RandomAccessData {
 		private long moveOn(int amount) {
 			this.position += amount;
 			return amount;
+		}
+
+	}
+
+	private static final class FileAccess {
+
+		private final Object monitor = new Object();
+
+		private final File file;
+
+		private RandomAccessFile randomAccessFile;
+
+		private FileAccess(File file) {
+			this.file = file;
+			openIfNecessary();
+		}
+
+		private int read(byte[] bytes, long position, int offset, int length) throws IOException {
+			synchronized (this.monitor) {
+				openIfNecessary();
+				this.randomAccessFile.seek(position);
+				return this.randomAccessFile.read(bytes, offset, length);
+			}
+		}
+
+		private void openIfNecessary() {
+			if (this.randomAccessFile == null) {
+				try {
+					this.randomAccessFile = new RandomAccessFile(this.file, "r");
+				}
+				catch (FileNotFoundException ex) {
+					throw new IllegalArgumentException(
+							String.format("File %s must exist", this.file.getAbsolutePath()));
+				}
+			}
+		}
+
+		private void close() throws IOException {
+			synchronized (this.monitor) {
+				if (this.randomAccessFile != null) {
+					this.randomAccessFile.close();
+					this.randomAccessFile = null;
+				}
+			}
+		}
+
+		private int readByte(long position) throws IOException {
+			synchronized (this.monitor) {
+				openIfNecessary();
+				this.randomAccessFile.seek(position);
+				return this.randomAccessFile.read();
+			}
 		}
 
 	}

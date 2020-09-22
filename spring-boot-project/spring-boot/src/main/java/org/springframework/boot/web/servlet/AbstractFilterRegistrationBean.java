@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,11 +29,10 @@ import javax.servlet.FilterRegistration;
 import javax.servlet.FilterRegistration.Dynamic;
 import javax.servlet.ServletContext;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Abstract base {@link ServletContextInitializer} to register {@link Filter}s in a
@@ -41,16 +40,10 @@ import org.springframework.util.StringUtils;
  *
  * @param <T> the type of {@link Filter} to register
  * @author Phillip Webb
+ * @author Brian Clozel
+ * @since 1.5.22
  */
-abstract class AbstractFilterRegistrationBean<T extends Filter>
-		extends DynamicRegistrationBean<Dynamic> {
-
-	/**
-	 * Filters that wrap the servlet request should be ordered less than or equal to this.
-	 */
-	protected static final int REQUEST_WRAPPER_FILTER_MAX_ORDER = 0;
-
-	private final Log logger = LogFactory.getLog(getClass());
+public abstract class AbstractFilterRegistrationBean<T extends Filter> extends DynamicRegistrationBean<Dynamic> {
 
 	private static final String[] DEFAULT_URL_MAPPINGS = { "/*" };
 
@@ -69,10 +62,8 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	 * {@link ServletRegistrationBean}s.
 	 * @param servletRegistrationBeans associate {@link ServletRegistrationBean}s
 	 */
-	AbstractFilterRegistrationBean(
-			ServletRegistrationBean<?>... servletRegistrationBeans) {
-		Assert.notNull(servletRegistrationBeans,
-				"ServletRegistrationBeans must not be null");
+	AbstractFilterRegistrationBean(ServletRegistrationBean<?>... servletRegistrationBeans) {
+		Assert.notNull(servletRegistrationBeans, "ServletRegistrationBeans must not be null");
 		Collections.addAll(this.servletRegistrationBeans, servletRegistrationBeans);
 	}
 
@@ -80,10 +71,8 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	 * Set {@link ServletRegistrationBean}s that the filter will be registered against.
 	 * @param servletRegistrationBeans the Servlet registration beans
 	 */
-	public void setServletRegistrationBeans(
-			Collection<? extends ServletRegistrationBean<?>> servletRegistrationBeans) {
-		Assert.notNull(servletRegistrationBeans,
-				"ServletRegistrationBeans must not be null");
+	public void setServletRegistrationBeans(Collection<? extends ServletRegistrationBean<?>> servletRegistrationBeans) {
+		Assert.notNull(servletRegistrationBeans, "ServletRegistrationBeans must not be null");
 		this.servletRegistrationBeans = new LinkedHashSet<>(servletRegistrationBeans);
 	}
 
@@ -103,10 +92,8 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	 * @param servletRegistrationBeans the servlet registration beans to add
 	 * @see #setServletRegistrationBeans
 	 */
-	public void addServletRegistrationBeans(
-			ServletRegistrationBean<?>... servletRegistrationBeans) {
-		Assert.notNull(servletRegistrationBeans,
-				"ServletRegistrationBeans must not be null");
+	public void addServletRegistrationBeans(ServletRegistrationBean<?>... servletRegistrationBeans) {
+		Assert.notNull(servletRegistrationBeans, "ServletRegistrationBeans must not be null");
 		Collections.addAll(this.servletRegistrationBeans, servletRegistrationBeans);
 	}
 
@@ -153,8 +140,8 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	}
 
 	/**
-	 * Return a mutable collection of URL patterns that the filter will be registered
-	 * against.
+	 * Return a mutable collection of URL patterns, as defined in the Servlet
+	 * specification, that the filter will be registered against.
 	 * @return the URL patterns
 	 */
 	public Collection<String> getUrlPatterns() {
@@ -162,7 +149,8 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	}
 
 	/**
-	 * Add URL patterns that the filter will be registered against.
+	 * Add URL patterns, as defined in the Servlet specification, that the filter will be
+	 * registered against.
 	 * @param urlPatterns the URL patterns
 	 */
 	public void addUrlPatterns(String... urlPatterns) {
@@ -232,7 +220,14 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 		super.configure(registration);
 		EnumSet<DispatcherType> dispatcherTypes = this.dispatcherTypes;
 		if (dispatcherTypes == null) {
-			dispatcherTypes = EnumSet.of(DispatcherType.REQUEST);
+			T filter = getFilter();
+			if (ClassUtils.isPresent("org.springframework.web.filter.OncePerRequestFilter",
+					filter.getClass().getClassLoader()) && filter instanceof OncePerRequestFilter) {
+				dispatcherTypes = EnumSet.allOf(DispatcherType.class);
+			}
+			else {
+				dispatcherTypes = EnumSet.of(DispatcherType.REQUEST);
+			}
 		}
 		Set<String> servletNames = new LinkedHashSet<>();
 		for (ServletRegistrationBean<?> servletRegistrationBean : this.servletRegistrationBeans) {
@@ -240,21 +235,14 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 		}
 		servletNames.addAll(this.servletNames);
 		if (servletNames.isEmpty() && this.urlPatterns.isEmpty()) {
-			this.logger.info("Mapping filter: '" + registration.getName() + "' to: "
-					+ Arrays.asList(DEFAULT_URL_MAPPINGS));
-			registration.addMappingForUrlPatterns(dispatcherTypes, this.matchAfter,
-					DEFAULT_URL_MAPPINGS);
+			registration.addMappingForUrlPatterns(dispatcherTypes, this.matchAfter, DEFAULT_URL_MAPPINGS);
 		}
 		else {
 			if (!servletNames.isEmpty()) {
-				this.logger.info("Mapping filter: '" + registration.getName()
-						+ "' to servlets: " + servletNames);
 				registration.addMappingForServletNames(dispatcherTypes, this.matchAfter,
 						StringUtils.toStringArray(servletNames));
 			}
 			if (!this.urlPatterns.isEmpty()) {
-				this.logger.info("Mapping filter: '" + registration.getName()
-						+ "' to urls: " + this.urlPatterns);
 				registration.addMappingForUrlPatterns(dispatcherTypes, this.matchAfter,
 						StringUtils.toStringArray(this.urlPatterns));
 			}
@@ -266,5 +254,23 @@ abstract class AbstractFilterRegistrationBean<T extends Filter>
 	 * @return the filter
 	 */
 	public abstract T getFilter();
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder(getOrDeduceName(this));
+		if (this.servletNames.isEmpty() && this.urlPatterns.isEmpty()) {
+			builder.append(" urls=").append(Arrays.toString(DEFAULT_URL_MAPPINGS));
+		}
+		else {
+			if (!this.servletNames.isEmpty()) {
+				builder.append(" servlets=").append(this.servletNames);
+			}
+			if (!this.urlPatterns.isEmpty()) {
+				builder.append(" urls=").append(this.urlPatterns);
+			}
+		}
+		builder.append(" order=").append(getOrder());
+		return builder.toString();
+	}
 
 }

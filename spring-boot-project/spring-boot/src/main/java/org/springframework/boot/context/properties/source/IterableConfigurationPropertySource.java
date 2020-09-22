@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,8 +43,7 @@ public interface IterableConfigurationPropertySource
 
 	/**
 	 * Return an iterator for the {@link ConfigurationPropertyName names} managed by this
-	 * source. If it is not possible to determine the names an empty iterator may be
-	 * returned.
+	 * source.
 	 * @return an iterator (never {@code null})
 	 */
 	@Override
@@ -54,27 +53,23 @@ public interface IterableConfigurationPropertySource
 
 	/**
 	 * Returns a sequential {@code Stream} for the {@link ConfigurationPropertyName names}
-	 * managed by this source. If it is not possible to determine the names an
-	 * {@link Stream#empty() empty stream} may be returned.
+	 * managed by this source.
 	 * @return a stream of names (never {@code null})
 	 */
 	Stream<ConfigurationPropertyName> stream();
 
 	@Override
-	default ConfigurationPropertyState containsDescendantOf(
-			ConfigurationPropertyName name) {
+	default ConfigurationPropertyState containsDescendantOf(ConfigurationPropertyName name) {
 		return ConfigurationPropertyState.search(this, name::isAncestorOf);
 	}
 
 	@Override
-	default IterableConfigurationPropertySource filter(
-			Predicate<ConfigurationPropertyName> filter) {
+	default IterableConfigurationPropertySource filter(Predicate<ConfigurationPropertyName> filter) {
 		return new FilteredIterableConfigurationPropertiesSource(this, filter);
 	}
 
 	@Override
-	default IterableConfigurationPropertySource withAliases(
-			ConfigurationPropertyNameAliases aliases) {
+	default IterableConfigurationPropertySource withAliases(ConfigurationPropertyNameAliases aliases) {
 		return new AliasedIterableConfigurationPropertySource(this, aliases);
 	}
 

@@ -1,18 +1,15 @@
-buildscript {
-	dependencies {
-		classpath files(pluginClasspath.split(','))
-	}
+plugins {
+    id 'org.springframework.boot' version '{version}'
 }
-
-apply plugin: 'org.springframework.boot'
 
 if (project.hasProperty('applyApplicationPlugin')) {
 	apply plugin: 'application'
+	applicationDefaultJvmArgs = ['-Dcom.example.a=alpha', '-Dcom.example.b=bravo']
 }
 
 task('taskExists') {
 	doFirst {
-		println "$taskName exists = ${tasks.findByName(taskName) != null}"
+		println "${taskName} exists = ${tasks.findByName(taskName) != null}"
 	}
 }
 
@@ -20,14 +17,22 @@ task('distributionExists') {
 	doFirst {
 		boolean found = project.hasProperty('distributions') &&
 				distributions.findByName(distributionName) != null
-		println "$distributionName exists = $found"
+		println "${distributionName} exists = ${found}"
 	}
 }
 
 task('javaCompileEncoding') {
 	doFirst {
 		tasks.withType(JavaCompile) {
-			println "$name = ${options.encoding}"
+			println "${name} = ${options.encoding}"
+		}
+	}
+}
+
+task('startScriptsDefaultJvmOpts') {
+	doFirst {
+		tasks.getByName("bootStartScripts") {
+			println "$name defaultJvmOpts = $defaultJvmOpts"
 		}
 	}
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,12 +26,13 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.logging.Log;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.boot.loader.tools.Library;
 import org.springframework.boot.loader.tools.LibraryCallback;
@@ -48,7 +49,8 @@ import static org.mockito.Mockito.verify;
  *
  * @author Phillip Webb
  */
-public class ArtifactsLibrariesTests {
+@ExtendWith(MockitoExtension.class)
+class ArtifactsLibrariesTests {
 
 	@Mock
 	private Artifact artifact;
@@ -68,19 +70,17 @@ public class ArtifactsLibrariesTests {
 	@Captor
 	private ArgumentCaptor<Library> libraryCaptor;
 
-	@Before
-	public void setup() {
-		MockitoAnnotations.initMocks(this);
+	@BeforeEach
+	void setup() {
 		this.artifacts = Collections.singleton(this.artifact);
 		this.libs = new ArtifactsLibraries(this.artifacts, null, mock(Log.class));
-		given(this.artifact.getFile()).willReturn(this.file);
 		given(this.artifactHandler.getExtension()).willReturn("jar");
-		given(this.artifact.getArtifactHandler()).willReturn(this.artifactHandler);
 	}
 
 	@Test
-	public void callbackForJars() throws Exception {
-		given(this.artifact.getType()).willReturn("jar");
+	void callbackForJars() throws Exception {
+		given(this.artifact.getFile()).willReturn(this.file);
+		given(this.artifact.getArtifactHandler()).willReturn(this.artifactHandler);
 		given(this.artifact.getScope()).willReturn("compile");
 		this.libs.doWithLibraries(this.callback);
 		verify(this.callback).library(this.libraryCaptor.capture());
@@ -91,33 +91,31 @@ public class ArtifactsLibrariesTests {
 	}
 
 	@Test
-	public void callbackWithUnpack() throws Exception {
+	void callbackWithUnpack() throws Exception {
+		given(this.artifact.getFile()).willReturn(this.file);
+		given(this.artifact.getArtifactHandler()).willReturn(this.artifactHandler);
 		given(this.artifact.getGroupId()).willReturn("gid");
 		given(this.artifact.getArtifactId()).willReturn("aid");
-		given(this.artifact.getType()).willReturn("jar");
 		given(this.artifact.getScope()).willReturn("compile");
 		Dependency unpack = new Dependency();
 		unpack.setGroupId("gid");
 		unpack.setArtifactId("aid");
-		this.libs = new ArtifactsLibraries(this.artifacts, Collections.singleton(unpack),
-				mock(Log.class));
+		this.libs = new ArtifactsLibraries(this.artifacts, Collections.singleton(unpack), mock(Log.class));
 		this.libs.doWithLibraries(this.callback);
 		verify(this.callback).library(this.libraryCaptor.capture());
 		assertThat(this.libraryCaptor.getValue().isUnpackRequired()).isTrue();
 	}
 
 	@Test
-	public void renamesDuplicates() throws Exception {
+	void renamesDuplicates() throws Exception {
 		Artifact artifact1 = mock(Artifact.class);
 		Artifact artifact2 = mock(Artifact.class);
-		given(artifact1.getType()).willReturn("jar");
 		given(artifact1.getScope()).willReturn("compile");
 		given(artifact1.getGroupId()).willReturn("g1");
 		given(artifact1.getArtifactId()).willReturn("artifact");
 		given(artifact1.getBaseVersion()).willReturn("1.0");
 		given(artifact1.getFile()).willReturn(new File("a"));
 		given(artifact1.getArtifactHandler()).willReturn(this.artifactHandler);
-		given(artifact2.getType()).willReturn("jar");
 		given(artifact2.getScope()).willReturn("compile");
 		given(artifact2.getGroupId()).willReturn("g2");
 		given(artifact2.getArtifactId()).willReturn("artifact");
@@ -128,10 +126,8 @@ public class ArtifactsLibrariesTests {
 		this.libs = new ArtifactsLibraries(this.artifacts, null, mock(Log.class));
 		this.libs.doWithLibraries(this.callback);
 		verify(this.callback, times(2)).library(this.libraryCaptor.capture());
-		assertThat(this.libraryCaptor.getAllValues().get(0).getName())
-				.isEqualTo("g1-artifact-1.0.jar");
-		assertThat(this.libraryCaptor.getAllValues().get(1).getName())
-				.isEqualTo("g2-artifact-1.0.jar");
+		assertThat(this.libraryCaptor.getAllValues().get(0).getName()).isEqualTo("g1-artifact-1.0.jar");
+		assertThat(this.libraryCaptor.getAllValues().get(1).getName()).isEqualTo("g2-artifact-1.0.jar");
 	}
 
 }

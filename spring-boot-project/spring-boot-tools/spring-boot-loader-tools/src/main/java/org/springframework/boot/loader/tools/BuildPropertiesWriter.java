@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Properties;
+
+import org.springframework.core.CollectionFactory;
 
 /**
  * A {@code BuildPropertiesWriter} writes the {@code build-info.properties} for
@@ -31,6 +32,7 @@ import java.util.Properties;
  *
  * @author Andy Wilkinson
  * @author Stephane Nicoll
+ * @since 1.0.0
  */
 public final class BuildPropertiesWriter {
 
@@ -59,30 +61,25 @@ public final class BuildPropertiesWriter {
 		}
 		File parent = file.getParentFile();
 		if (!parent.isDirectory() && !parent.mkdirs()) {
-			throw new IllegalStateException("Cannot create parent directory for '"
-					+ this.outputFile.getAbsolutePath() + "'");
+			throw new IllegalStateException(
+					"Cannot create parent directory for '" + this.outputFile.getAbsolutePath() + "'");
 		}
 		if (!file.createNewFile()) {
-			throw new IllegalStateException("Cannot create target file '"
-					+ this.outputFile.getAbsolutePath() + "'");
+			throw new IllegalStateException("Cannot create target file '" + this.outputFile.getAbsolutePath() + "'");
 		}
 	}
 
 	protected Properties createBuildInfo(ProjectDetails project) {
-		Properties properties = new Properties();
+		Properties properties = CollectionFactory.createSortedProperties(true);
 		properties.put("build.group", project.getGroup());
 		properties.put("build.artifact", project.getArtifact());
 		properties.put("build.name", project.getName());
 		properties.put("build.version", project.getVersion());
 		if (project.getTime() != null) {
-			properties.put("build.time",
-					DateTimeFormatter.ISO_INSTANT.format(project.getTime()));
+			properties.put("build.time", DateTimeFormatter.ISO_INSTANT.format(project.getTime()));
 		}
 		if (project.getAdditionalProperties() != null) {
-			for (Map.Entry<String, String> entry : project.getAdditionalProperties()
-					.entrySet()) {
-				properties.put("build." + entry.getKey(), entry.getValue());
-			}
+			project.getAdditionalProperties().forEach((name, value) -> properties.put("build." + name, value));
 		}
 		return properties;
 	}
@@ -104,8 +101,8 @@ public final class BuildPropertiesWriter {
 
 		private final Map<String, String> additionalProperties;
 
-		public ProjectDetails(String group, String artifact, String version, String name,
-				Instant time, Map<String, String> additionalProperties) {
+		public ProjectDetails(String group, String artifact, String version, String name, Instant time,
+				Map<String, String> additionalProperties) {
 			this.group = group;
 			this.artifact = artifact;
 			this.name = name;
@@ -115,14 +112,13 @@ public final class BuildPropertiesWriter {
 			this.additionalProperties = additionalProperties;
 		}
 
-		private static void validateAdditionalProperties(
-				Map<String, String> additionalProperties) {
+		private static void validateAdditionalProperties(Map<String, String> additionalProperties) {
 			if (additionalProperties != null) {
-				for (Entry<String, String> property : additionalProperties.entrySet()) {
-					if (property.getValue() == null) {
-						throw new NullAdditionalPropertyValueException(property.getKey());
+				additionalProperties.forEach((name, value) -> {
+					if (value == null) {
+						throw new NullAdditionalPropertyValueException(name);
 					}
-				}
+				});
 			}
 		}
 
@@ -155,8 +151,7 @@ public final class BuildPropertiesWriter {
 	/**
 	 * Exception thrown when an additional property with a null value is encountered.
 	 */
-	public static class NullAdditionalPropertyValueException
-			extends IllegalArgumentException {
+	public static class NullAdditionalPropertyValueException extends IllegalArgumentException {
 
 		public NullAdditionalPropertyValueException(String name) {
 			super("Additional property '" + name + "' is illegal as its value is null");

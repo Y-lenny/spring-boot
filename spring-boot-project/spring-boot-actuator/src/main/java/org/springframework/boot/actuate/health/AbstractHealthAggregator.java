@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,10 @@
 
 package org.springframework.boot.actuate.health;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Base {@link HealthAggregator} implementation to allow subclasses to focus on
@@ -28,15 +28,14 @@ import java.util.Map;
  * @author Christian Dupuis
  * @author Vedran Pavic
  * @since 1.1.0
+ * @deprecated since 2.2.0 as {@link HealthAggregator} has been deprecated
  */
+@Deprecated
 public abstract class AbstractHealthAggregator implements HealthAggregator {
 
 	@Override
 	public final Health aggregate(Map<String, Health> healths) {
-		List<Status> statusCandidates = new ArrayList<>();
-		for (Map.Entry<String, Health> entry : healths.entrySet()) {
-			statusCandidates.add(entry.getValue().getStatus());
-		}
+		List<Status> statusCandidates = healths.values().stream().map(Health::getStatus).collect(Collectors.toList());
 		Status status = aggregateStatus(statusCandidates);
 		Map<String, Object> details = aggregateDetails(healths);
 		return new Health.Builder(status, details).build();

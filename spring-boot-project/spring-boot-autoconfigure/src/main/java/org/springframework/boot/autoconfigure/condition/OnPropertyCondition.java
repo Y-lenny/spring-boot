@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.springframework.boot.autoconfigure.condition.ConditionMessage.Style;
 import org.springframework.context.annotation.Condition;
@@ -41,23 +40,19 @@ import org.springframework.util.StringUtils;
  * @author Phillip Webb
  * @author Stephane Nicoll
  * @author Andy Wilkinson
- * @since 1.1.0
  * @see ConditionalOnProperty
  */
 @Order(Ordered.HIGHEST_PRECEDENCE + 40)
 class OnPropertyCondition extends SpringBootCondition {
 
 	@Override
-	public ConditionOutcome getMatchOutcome(ConditionContext context,
-			AnnotatedTypeMetadata metadata) {
+	public ConditionOutcome getMatchOutcome(ConditionContext context, AnnotatedTypeMetadata metadata) {
 		List<AnnotationAttributes> allAnnotationAttributes = annotationAttributesFromMultiValueMap(
-				metadata.getAllAnnotationAttributes(
-						ConditionalOnProperty.class.getName()));
+				metadata.getAllAnnotationAttributes(ConditionalOnProperty.class.getName()));
 		List<ConditionMessage> noMatch = new ArrayList<>();
 		List<ConditionMessage> match = new ArrayList<>();
 		for (AnnotationAttributes annotationAttributes : allAnnotationAttributes) {
-			ConditionOutcome outcome = determineOutcome(annotationAttributes,
-					context.getEnvironment());
+			ConditionOutcome outcome = determineOutcome(annotationAttributes, context.getEnvironment());
 			(outcome.isMatch() ? match : noMatch).add(outcome.getConditionMessage());
 		}
 		if (!noMatch.isEmpty()) {
@@ -69,8 +64,8 @@ class OnPropertyCondition extends SpringBootCondition {
 	private List<AnnotationAttributes> annotationAttributesFromMultiValueMap(
 			MultiValueMap<String, Object> multiValueMap) {
 		List<Map<String, Object>> maps = new ArrayList<>();
-		for (Entry<String, List<Object>> entry : multiValueMap.entrySet()) {
-			for (int i = 0; i < entry.getValue().size(); i++) {
+		multiValueMap.forEach((key, value) -> {
+			for (int i = 0; i < value.size(); i++) {
 				Map<String, Object> map;
 				if (i < maps.size()) {
 					map = maps.get(i);
@@ -79,9 +74,9 @@ class OnPropertyCondition extends SpringBootCondition {
 					map = new HashMap<>();
 					maps.add(map);
 				}
-				map.put(entry.getKey(), entry.getValue().get(i));
+				map.put(key, value.get(i));
 			}
-		}
+		});
 		List<AnnotationAttributes> annotationAttributes = new ArrayList<>(maps.size());
 		for (Map<String, Object> map : maps) {
 			annotationAttributes.add(AnnotationAttributes.fromMap(map));
@@ -89,27 +84,22 @@ class OnPropertyCondition extends SpringBootCondition {
 		return annotationAttributes;
 	}
 
-	private ConditionOutcome determineOutcome(AnnotationAttributes annotationAttributes,
-			PropertyResolver resolver) {
+	private ConditionOutcome determineOutcome(AnnotationAttributes annotationAttributes, PropertyResolver resolver) {
 		Spec spec = new Spec(annotationAttributes);
 		List<String> missingProperties = new ArrayList<>();
 		List<String> nonMatchingProperties = new ArrayList<>();
 		spec.collectProperties(resolver, missingProperties, nonMatchingProperties);
 		if (!missingProperties.isEmpty()) {
-			return ConditionOutcome.noMatch(
-					ConditionMessage.forCondition(ConditionalOnProperty.class, spec)
-							.didNotFind("property", "properties")
-							.items(Style.QUOTE, missingProperties));
+			return ConditionOutcome.noMatch(ConditionMessage.forCondition(ConditionalOnProperty.class, spec)
+					.didNotFind("property", "properties").items(Style.QUOTE, missingProperties));
 		}
 		if (!nonMatchingProperties.isEmpty()) {
-			return ConditionOutcome.noMatch(
-					ConditionMessage.forCondition(ConditionalOnProperty.class, spec)
-							.found("different value in property",
-									"different value in properties")
-							.items(Style.QUOTE, nonMatchingProperties));
+			return ConditionOutcome.noMatch(ConditionMessage.forCondition(ConditionalOnProperty.class, spec)
+					.found("different value in property", "different value in properties")
+					.items(Style.QUOTE, nonMatchingProperties));
 		}
-		return ConditionOutcome.match(ConditionMessage
-				.forCondition(ConditionalOnProperty.class, spec).because("matched"));
+		return ConditionOutcome
+				.match(ConditionMessage.forCondition(ConditionalOnProperty.class, spec).because("matched"));
 	}
 
 	private static class Spec {
@@ -140,11 +130,10 @@ class OnPropertyCondition extends SpringBootCondition {
 					"The name or value attribute of @ConditionalOnProperty must be specified");
 			Assert.state(value.length == 0 || name.length == 0,
 					"The name and value attributes of @ConditionalOnProperty are exclusive");
-			return (value.length > 0 ? value : name);
+			return (value.length > 0) ? value : name;
 		}
 
-		private void collectProperties(PropertyResolver resolver, List<String> missing,
-				List<String> nonMatching) {
+		private void collectProperties(PropertyResolver resolver, List<String> missing, List<String> nonMatching) {
 			for (String name : this.names) {
 				String key = this.prefix + name;
 				if (resolver.containsProperty(key)) {

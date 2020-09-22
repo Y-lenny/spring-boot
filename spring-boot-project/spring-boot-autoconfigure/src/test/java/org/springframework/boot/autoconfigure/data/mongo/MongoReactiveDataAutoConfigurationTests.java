@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,14 +16,17 @@
 
 package org.springframework.boot.autoconfigure.data.mongo;
 
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
-import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.gridfs.ReactiveGridFsTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,26 +34,59 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests for {@link MongoReactiveDataAutoConfiguration}.
  *
  * @author Mark Paluch
+ * @author Artsiom Yudovin
  */
-public class MongoReactiveDataAutoConfigurationTests {
+class MongoReactiveDataAutoConfigurationTests {
 
-	private AnnotationConfigApplicationContext context;
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+			.withConfiguration(AutoConfigurations.of(PropertyPlaceholderAutoConfiguration.class,
+					MongoReactiveAutoConfiguration.class, MongoReactiveDataAutoConfiguration.class));
 
-	@After
-	public void close() {
-		if (this.context != null) {
-			this.context.close();
-		}
+	@Test
+	void templateExists() {
+		this.contextRunner.run((context) -> assertThat(context).hasSingleBean(ReactiveMongoTemplate.class));
 	}
 
 	@Test
-	public void templateExists() {
-		this.context = new AnnotationConfigApplicationContext(
-				PropertyPlaceholderAutoConfiguration.class, MongoAutoConfiguration.class,
-				MongoDataAutoConfiguration.class, MongoReactiveAutoConfiguration.class,
-				MongoReactiveDataAutoConfiguration.class);
-		assertThat(this.context.getBeanNamesForType(ReactiveMongoTemplate.class))
-				.hasSize(1);
+	void whenNoGridFsDatabaseIsConfiguredTheGridFsTemplateUsesTheMainDatabase() {
+		this.contextRunner.run((context) -> assertThat(grisFsTemplateDatabaseName(context)).isEqualTo("test"));
+	}
+
+	@Test
+	void whenGridFsDatabaseIsConfiguredThenGridFsTemplateUsesIt() {
+		this.contextRunner.withPropertyValues("spring.data.mongodb.gridfs.database:grid")
+				.run((context) -> assertThat(grisFsTemplateDatabaseName(context)).isEqualTo("grid"));
+	}
+
+	@Test
+	@Deprecated
+	void whenGridFsDatabaseIsConfiguredWithDeprecatedPropertyThenGridFsTemplateUsesIt() {
+		this.contextRunner.withPropertyValues("spring.data.mongodb.gridFsDatabase:grid")
+				.run((context) -> assertThat(grisFsTemplateDatabaseName(context)).isEqualTo("grid"));
+	}
+
+	@Test
+	void whenGridFsBucketIsConfiguredThenGridFsTemplateUsesIt() {
+		this.contextRunner.withPropertyValues("spring.data.mongodb.gridfs.bucket:test-bucket").run((context) -> {
+			assertThat(context).hasSingleBean(ReactiveGridFsTemplate.class);
+			ReactiveGridFsTemplate template = context.getBean(ReactiveGridFsTemplate.class);
+			assertThat(template).hasFieldOrPropertyWithValue("bucket", "test-bucket");
+		});
+	}
+
+	@Test
+	void backsOffIfMongoClientBeanIsNotPresent() {
+		ApplicationContextRunner runner = new ApplicationContextRunner().withConfiguration(AutoConfigurations
+				.of(PropertyPlaceholderAutoConfiguration.class, MongoReactiveDataAutoConfiguration.class));
+		runner.run((context) -> assertThat(context).doesNotHaveBean(MongoReactiveDataAutoConfiguration.class));
+	}
+
+	private String grisFsTemplateDatabaseName(AssertableApplicationContext context) {
+		assertThat(context).hasSingleBean(ReactiveGridFsTemplate.class);
+		ReactiveGridFsTemplate template = context.getBean(ReactiveGridFsTemplate.class);
+		ReactiveMongoDatabaseFactory factory = (ReactiveMongoDatabaseFactory) ReflectionTestUtils.getField(template,
+				"dbFactory");
+		return factory.getMongoDatabase().block().getName();
 	}
 
 }

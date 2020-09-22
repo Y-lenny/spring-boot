@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,13 +37,13 @@ import org.springframework.core.Ordered;
  * @author Ivan Golovko
  * @since 1.2.0
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(Gson.class)
 @EnableConfigurationProperties(GsonProperties.class)
 public class GsonAutoConfiguration {
 
 	@Bean
-	@ConditionalOnMissingBean(GsonBuilder.class)
+	@ConditionalOnMissingBean
 	public GsonBuilder gsonBuilder(List<GsonBuilderCustomizer> customizers) {
 		GsonBuilder builder = new GsonBuilder();
 		customizers.forEach((c) -> c.customize(builder));
@@ -51,19 +51,17 @@ public class GsonAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean(Gson.class)
+	@ConditionalOnMissingBean
 	public Gson gson(GsonBuilder gsonBuilder) {
 		return gsonBuilder.create();
 	}
 
 	@Bean
-	public StandardGsonBuilderCustomizer standardGsonBuilderCustomizer(
-			GsonProperties gsonProperties) {
+	public StandardGsonBuilderCustomizer standardGsonBuilderCustomizer(GsonProperties gsonProperties) {
 		return new StandardGsonBuilderCustomizer(gsonProperties);
 	}
 
-	private static final class StandardGsonBuilderCustomizer
-			implements GsonBuilderCustomizer, Ordered {
+	static final class StandardGsonBuilderCustomizer implements GsonBuilderCustomizer, Ordered {
 
 		private final GsonProperties properties;
 
@@ -80,22 +78,17 @@ public class GsonAutoConfiguration {
 		public void customize(GsonBuilder builder) {
 			GsonProperties properties = this.properties;
 			PropertyMapper map = PropertyMapper.get().alwaysApplyingWhenNonNull();
-			map.from(properties::getGenerateNonExecutableJson)
-					.toCall(builder::generateNonExecutableJson);
+			map.from(properties::getGenerateNonExecutableJson).toCall(builder::generateNonExecutableJson);
 			map.from(properties::getExcludeFieldsWithoutExposeAnnotation)
 					.toCall(builder::excludeFieldsWithoutExposeAnnotation);
-			map.from(properties::getSerializeNulls).toCall(builder::serializeNulls);
-			map.from(properties::getEnableComplexMapKeySerialization)
-					.toCall(builder::enableComplexMapKeySerialization);
-			map.from(properties::getDisableInnerClassSerialization)
-					.toCall(builder::disableInnerClassSerialization);
-			map.from(properties::getLongSerializationPolicy)
-					.to(builder::setLongSerializationPolicy);
+			map.from(properties::getSerializeNulls).whenTrue().toCall(builder::serializeNulls);
+			map.from(properties::getEnableComplexMapKeySerialization).toCall(builder::enableComplexMapKeySerialization);
+			map.from(properties::getDisableInnerClassSerialization).toCall(builder::disableInnerClassSerialization);
+			map.from(properties::getLongSerializationPolicy).to(builder::setLongSerializationPolicy);
 			map.from(properties::getFieldNamingPolicy).to(builder::setFieldNamingPolicy);
 			map.from(properties::getPrettyPrinting).toCall(builder::setPrettyPrinting);
 			map.from(properties::getLenient).toCall(builder::setLenient);
-			map.from(properties::getDisableHtmlEscaping)
-					.toCall(builder::disableHtmlEscaping);
+			map.from(properties::getDisableHtmlEscaping).toCall(builder::disableHtmlEscaping);
 			map.from(properties::getDateFormat).to(builder::setDateFormat);
 		}
 

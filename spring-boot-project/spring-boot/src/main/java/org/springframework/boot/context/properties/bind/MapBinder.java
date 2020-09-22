@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.boot.context.properties.bind;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 import org.springframework.boot.context.properties.bind.Binder.Context;
 import org.springframework.boot.context.properties.source.ConfigurationProperty;
@@ -29,7 +30,6 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.boot.context.properties.source.IterableConfigurationPropertySource;
 import org.springframework.core.CollectionFactory;
 import org.springframework.core.ResolvableType;
-import org.springframework.util.ClassUtils;
 
 /**
  * {@link AggregateBinder} for Maps.
@@ -39,8 +39,7 @@ import org.springframework.util.ClassUtils;
  */
 class MapBinder extends AggregateBinder<Map<Object, Object>> {
 
-	private static final Bindable<Map<String, String>> STRING_STRING_MAP = Bindable
-			.mapOf(String.class, String.class);
+	private static final Bindable<Map<String, String>> STRING_STRING_MAP = Bindable.mapOf(String.class, String.class);
 
 	MapBinder(Context context) {
 		super(context);
@@ -54,23 +53,30 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 	@Override
 	protected Object bindAggregate(ConfigurationPropertyName name, Bindable<?> target,
 			AggregateElementBinder elementBinder) {
-		Map<Object, Object> map = CollectionFactory.createMap((target.getValue() == null
-				? target.getType().resolve(Object.class) : Map.class), 0);
+		Map<Object, Object> map = CollectionFactory
+				.createMap((target.getValue() != null) ? Map.class : target.getType().resolve(Object.class), 0);
 		Bindable<?> resolvedTarget = resolveTarget(target);
-		boolean hasDescendants = getContext().streamSources().anyMatch((source) -> source
-				.containsDescendantOf(name) == ConfigurationPropertyState.PRESENT);
+		boolean hasDescendants = hasDescendants(name);
 		for (ConfigurationPropertySource source : getContext().getSources()) {
 			if (!ConfigurationPropertyName.EMPTY.equals(name)) {
 				ConfigurationProperty property = source.getConfigurationProperty(name);
 				if (property != null && !hasDescendants) {
-					return getContext().getConverter().convert(property.getValue(),
-							target);
+					return getContext().getConverter().convert(property.getValue(), target);
 				}
 				source = source.filter(name::isAncestorOf);
 			}
 			new EntryBinder(name, resolvedTarget, elementBinder).bindEntries(source, map);
 		}
-		return (map.isEmpty() ? null : map);
+		return map.isEmpty() ? null : map;
+	}
+
+	private boolean hasDescendants(ConfigurationPropertyName name) {
+		for (ConfigurationPropertySource source : getContext().getSources()) {
+			if (source.containsDescendantOf(name) == ConfigurationPropertyState.PRESENT) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private Bindable<?> resolveTarget(Bindable<?> target) {
@@ -82,10 +88,44 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 	}
 
 	@Override
-	protected Map<Object, Object> merge(Map<Object, Object> existing,
-			Map<Object, Object> additional) {
-		existing.putAll(additional);
-		return existing;
+	protected Map<Object, Object> merge(Supplier<Map<Object, Object>> existing, Map<Object, Object> additional) {
+		Map<Object, Object> existingMap = getExistingIfPossible(existing);
+		if (existingMap == null) {
+			return additional;
+		}
+		try {
+			existingMap.putAll(additional);
+			return copyIfPossible(existingMap);
+		}
+		catch (UnsupportedOperationException ex) {
+			Map<Object, Object> result = createNewMap(additional.getClass(), existingMap);
+			result.putAll(additional);
+			return result;
+		}
+	}
+
+	private Map<Object, Object> getExistingIfPossible(Supplier<Map<Object, Object>> existing) {
+		try {
+			return existing.get();
+		}
+		catch (Exception ex) {
+			return null;
+		}
+	}
+
+	private Map<Object, Object> copyIfPossible(Map<Object, Object> map) {
+		try {
+			return createNewMap(map.getClass(), map);
+		}
+		catch (Exception ex) {
+			return map;
+		}
+	}
+
+	private Map<Object, Object> createNewMap(Class<?> mapClass, Map<Object, Object> map) {
+		Map<Object, Object> result = CollectionFactory.createMap(mapClass, map.size());
+		result.putAll(map);
+		return result;
 	}
 
 	private class EntryBinder {
@@ -100,8 +140,7 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 
 		private final ResolvableType valueType;
 
-		EntryBinder(ConfigurationPropertyName root, Bindable<?> target,
-				AggregateElementBinder elementBinder) {
+		EntryBinder(ConfigurationPropertyName root, Bindable<?> target, AggregateElementBinder elementBinder) {
 			this.root = root;
 			this.elementBinder = elementBinder;
 			this.mapType = target.getType().asMap();
@@ -109,16 +148,13 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 			this.valueType = this.mapType.getGeneric(1);
 		}
 
-		public void bindEntries(ConfigurationPropertySource source,
-				Map<Object, Object> map) {
+		void bindEntries(ConfigurationPropertySource source, Map<Object, Object> map) {
 			if (source instanceof IterableConfigurationPropertySource) {
 				for (ConfigurationPropertyName name : (IterableConfigurationPropertySource) source) {
 					Bindable<?> valueBindable = getValueBindable(name);
 					ConfigurationPropertyName entryName = getEntryName(source, name);
-					Object key = getContext().getConverter()
-							.convert(getKeyName(entryName), this.keyType);
-					map.computeIfAbsent(key,
-							(k) -> this.elementBinder.bind(entryName, valueBindable));
+					Object key = getContext().getConverter().convert(getKeyName(entryName), this.keyType);
+					map.computeIfAbsent(key, (k) -> this.elementBinder.bind(entryName, valueBindable));
 				}
 			}
 		}
@@ -136,15 +172,13 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 			if (Collection.class.isAssignableFrom(resolved) || this.valueType.isArray()) {
 				return chopNameAtNumericIndex(name);
 			}
-			if (!this.root.isParentOf(name)
-					&& (isValueTreatedAsNestedMap() || !isScalarValue(source, name))) {
+			if (!this.root.isParentOf(name) && (isValueTreatedAsNestedMap() || !isScalarValue(source, name))) {
 				return name.chop(this.root.getNumberOfElements() + 1);
 			}
 			return name;
 		}
 
-		private ConfigurationPropertyName chopNameAtNumericIndex(
-				ConfigurationPropertyName name) {
+		private ConfigurationPropertyName chopNameAtNumericIndex(ConfigurationPropertyName name) {
 			int start = this.root.getNumberOfElements() + 1;
 			int size = name.getNumberOfElements();
 			for (int i = start; i < size; i++) {
@@ -159,11 +193,9 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 			return Object.class.equals(this.valueType.resolve(Object.class));
 		}
 
-		private boolean isScalarValue(ConfigurationPropertySource source,
-				ConfigurationPropertyName name) {
+		private boolean isScalarValue(ConfigurationPropertySource source, ConfigurationPropertyName name) {
 			Class<?> resolved = this.valueType.resolve(Object.class);
-			String packageName = ClassUtils.getPackageName(resolved);
-			if (!packageName.startsWith("java.lang") && !resolved.isEnum()) {
+			if (!resolved.getName().startsWith("java.lang") && !resolved.isEnum()) {
 				return false;
 			}
 			ConfigurationProperty property = source.getConfigurationProperty(name);
@@ -177,9 +209,10 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 
 		private String getKeyName(ConfigurationPropertyName name) {
 			StringBuilder result = new StringBuilder();
-			for (int i = this.root.getNumberOfElements(); i < name
-					.getNumberOfElements(); i++) {
-				result.append(result.length() == 0 ? "" : ".");
+			for (int i = this.root.getNumberOfElements(); i < name.getNumberOfElements(); i++) {
+				if (result.length() != 0) {
+					result.append('.');
+				}
 				result.append(name.getElement(i, Form.ORIGINAL));
 			}
 			return result.toString();
