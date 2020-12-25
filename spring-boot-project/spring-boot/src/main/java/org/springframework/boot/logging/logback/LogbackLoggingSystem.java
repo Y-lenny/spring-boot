@@ -53,7 +53,7 @@ import org.springframework.boot.logging.Slf4JLoggingSystem;
 import org.springframework.core.Ordered;
 import org.springframework.core.SpringProperties;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.env.Environment;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
@@ -103,6 +103,11 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 	}
 
 	@Override
+	public LoggingSystemProperties getSystemProperties(ConfigurableEnvironment environment) {
+		return new LogbackLoggingSystemProperties(environment);
+	}
+
+	@Override
 	protected String[] getStandardConfigLocations() {
 		return new String[] { "logback-test.groovy", "logback-test.xml", "logback.groovy", "logback.xml" };
 	}
@@ -142,13 +147,6 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		}
 		LogbackConfigurator configurator = debug ? new DebugLogbackConfigurator(context)
 				: new LogbackConfigurator(context);
-		Environment environment = initializationContext.getEnvironment();
-		context.putProperty(LoggingSystemProperties.LOG_LEVEL_PATTERN,
-				environment.resolvePlaceholders("${logging.pattern.level:${LOG_LEVEL_PATTERN:%5p}}"));
-		context.putProperty(LoggingSystemProperties.LOG_DATEFORMAT_PATTERN, environment.resolvePlaceholders(
-				"${logging.pattern.dateformat:${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS}}"));
-		context.putProperty(LoggingSystemProperties.ROLLING_FILE_NAME_PATTERN, environment
-				.resolvePlaceholders("${logging.pattern.rolling-file-name:${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz}"));
 		new DefaultLogbackConfiguration(initializationContext, logFile).apply(configurator);
 		context.setPackagingDataEnabled(true);
 	}
@@ -341,9 +339,12 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public static class Factory implements LoggingSystemFactory {
 
+		private static final boolean PRESENT = ClassUtils.isPresent("ch.qos.logback.core.Appender",
+				Factory.class.getClassLoader());
+
 		@Override
 		public LoggingSystem getLoggingSystem(ClassLoader classLoader) {
-			if (ClassUtils.isPresent("ch.qos.logback.core.Appender", classLoader)) {
+			if (PRESENT) {
 				return new LogbackLoggingSystem(classLoader);
 			}
 			return null;

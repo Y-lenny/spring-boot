@@ -23,6 +23,7 @@ import java.util.Map;
 import groovy.lang.Closure;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
 import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -58,6 +59,10 @@ public class BootBuildImage extends DefaultTask {
 
 	private static final String BUILDPACK_JVM_VERSION_KEY = "BP_JVM_VERSION";
 
+	private final String projectName;
+
+	private final Property<String> projectVersion;
+
 	private RegularFileProperty jar;
 
 	private Property<JavaVersion> targetJavaVersion;
@@ -76,11 +81,17 @@ public class BootBuildImage extends DefaultTask {
 
 	private PullPolicy pullPolicy;
 
+	private boolean publish;
+
 	private DockerSpec docker = new DockerSpec();
 
 	public BootBuildImage() {
 		this.jar = getProject().getObjects().fileProperty();
 		this.targetJavaVersion = getProject().getObjects().property(JavaVersion.class);
+		this.projectName = getProject().getName();
+		this.projectVersion = getProject().getObjects().property(String.class);
+		Project project = getProject();
+		this.projectVersion.set(getProject().provider(() -> project.getVersion().toString()));
 	}
 
 	/**
@@ -88,6 +99,7 @@ public class BootBuildImage extends DefaultTask {
 	 * @return the jar property
 	 */
 	@Input
+	@Optional
 	public RegularFileProperty getJar() {
 		return this.jar;
 	}
@@ -211,6 +223,7 @@ public class BootBuildImage extends DefaultTask {
 	 * Sets whether caches should be cleaned before packaging.
 	 * @param cleanCache {@code true} to clean the cache, otherwise {@code false}.
 	 */
+	@Option(option = "cleanCache", description = "Clean caches before packaging")
 	public void setCleanCache(boolean cleanCache) {
 		this.cleanCache = cleanCache;
 	}
@@ -253,6 +266,24 @@ public class BootBuildImage extends DefaultTask {
 	}
 
 	/**
+	 * Whether the built image should be pushed to a registry.
+	 * @return whether the built image should be pushed
+	 */
+	@Input
+	public boolean isPublish() {
+		return this.publish;
+	}
+
+	/**
+	 * Sets whether the built image should be pushed to a registry.
+	 * @param publish {@code true} the push the built image to a registry. {@code false}.
+	 */
+	@Option(option = "publishImage", description = "Publish the built image to a registry")
+	public void setPublish(boolean publish) {
+		this.publish = publish;
+	}
+
+	/**
 	 * Returns the Docker configuration the builder will use.
 	 * @return docker configuration.
 	 * @since 2.4.0
@@ -282,6 +313,9 @@ public class BootBuildImage extends DefaultTask {
 
 	@TaskAction
 	void buildImage() throws DockerEngineException, IOException {
+		if (!this.jar.isPresent()) {
+			throw new GradleException("Executable jar file required for building image");
+		}
 		Builder builder = new Builder(this.docker.asDockerConfiguration());
 		BuildRequest request = createRequest();
 		builder.build(request);
@@ -296,12 +330,11 @@ public class BootBuildImage extends DefaultTask {
 		if (StringUtils.hasText(this.imageName)) {
 			return ImageReference.of(this.imageName);
 		}
-		ImageName imageName = ImageName.of(getProject().getName());
-		String version = getProject().getVersion().toString();
-		if ("unspecified".equals(version)) {
+		ImageName imageName = ImageName.of(this.projectName);
+		if ("unspecified".equals(this.projectVersion.get())) {
 			return ImageReference.of(imageName);
 		}
-		return ImageReference.of(imageName, version);
+		return ImageReference.of(imageName, this.projectVersion.get());
 	}
 
 	private BuildRequest customize(BuildRequest request) {
@@ -312,6 +345,7 @@ public class BootBuildImage extends DefaultTask {
 		request = request.withCleanCache(this.cleanCache);
 		request = request.withVerboseLogging(this.verboseLogging);
 		request = customizePullPolicy(request);
+		request = customizePublish(request);
 		return request;
 	}
 
@@ -351,6 +385,16 @@ public class BootBuildImage extends DefaultTask {
 		if (this.pullPolicy != null) {
 			request = request.withPullPolicy(this.pullPolicy);
 		}
+		return request;
+	}
+
+	private BuildRequest customizePublish(BuildRequest request) {
+		boolean publishRegistryAuthNotConfigured = this.docker == null || this.docker.getPublishRegistry() == null
+				|| this.docker.getPublishRegistry().hasEmptyAuth();
+		if (this.publish && publishRegistryAuthNotConfigured) {
+			throw new GradleException("Publishing an image requires docker.publishRegistry to be configured");
+		}
+		request = request.withPublish(this.publish);
 		return request;
 	}
 

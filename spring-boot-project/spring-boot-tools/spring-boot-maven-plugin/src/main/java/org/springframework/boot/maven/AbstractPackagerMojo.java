@@ -28,6 +28,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Component;
@@ -67,6 +68,13 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	protected MavenProject project;
 
 	/**
+	 * The Maven session.
+	 * @since 2.4.0
+	 */
+	@Parameter(defaultValue = "${session}", readonly = true, required = true)
+	protected MavenSession session;
+
+	/**
 	 * Maven project helper utils.
 	 * @since 1.0.0
 	 */
@@ -75,7 +83,7 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 
 	/**
 	 * The name of the main class. If not specified the first compiled class found that
-	 * contains a 'main' method will be used.
+	 * contains a {@code main} method will be used.
 	 * @since 1.0.0
 	 */
 	@Parameter
@@ -83,8 +91,8 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 
 	/**
 	 * The type of archive (which corresponds to how the dependencies are laid out inside
-	 * it). Possible values are JAR, WAR, ZIP, DIR, NONE. Defaults to a guess based on the
-	 * archive type.
+	 * it). Possible values are {@code JAR}, {@code WAR}, {@code ZIP}, {@code DIR},
+	 * {@code NONE}. Defaults to a guess based on the archive type.
 	 * @since 1.0.0
 	 */
 	@Parameter(property = "spring-boot.repackage.layout")
@@ -114,7 +122,8 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	public boolean includeSystemScope;
 
 	/**
-	 * Layer configuration with the option to exclude layer tools jar.
+	 * Layer configuration with options to disable layer creation, exclude layer tools
+	 * jar, and provide a custom layers configuration file.
 	 * @since 2.3.0
 	 */
 	@Parameter
@@ -172,7 +181,7 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	 */
 	protected final Libraries getLibraries(Collection<Dependency> unpacks) throws MojoExecutionException {
 		Set<Artifact> artifacts = filterDependencies(this.project.getArtifacts(), getFilters(getAdditionalFilters()));
-		return new ArtifactsLibraries(artifacts, unpacks, getLog());
+		return new ArtifactsLibraries(artifacts, this.session.getProjects(), unpacks, getLog());
 	}
 
 	private ArtifactsFilter[] getAdditionalFilters() {
@@ -211,7 +220,7 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 		ZIP(new Expanded()),
 
 		/**
-		 * Dir Layout.
+		 * Directory Layout.
 		 */
 		DIR(new Expanded()),
 

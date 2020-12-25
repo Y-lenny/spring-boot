@@ -28,9 +28,8 @@ import org.gradle.api.JavaVersion;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.TestTemplate;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-import org.springframework.boot.gradle.junit.GradleCompatibilityExtension;
+import org.springframework.boot.gradle.junit.GradleCompatibility;
 import org.springframework.boot.gradle.testkit.GradleBuild;
 import org.springframework.util.FileSystemUtils;
 
@@ -41,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Andy Wilkinson
  */
-@ExtendWith(GradleCompatibilityExtension.class)
+@GradleCompatibility(configurationCache = true)
 class BootRunIntegrationTests {
 
 	GradleBuild gradleBuild;
@@ -69,23 +68,25 @@ class BootRunIntegrationTests {
 
 	@TestTemplate
 	void springBootExtensionMainClassNameIsUsed() throws IOException {
-		BuildResult result = this.gradleBuild.build("echoMainClassName");
-		assertThat(result.task(":echoMainClassName").getOutcome()).isEqualTo(TaskOutcome.UP_TO_DATE);
-		assertThat(result.getOutput()).contains("Main class name = com.example.CustomMainClass");
+		copyMainClassApplication();
+		BuildResult result = this.gradleBuild.build("bootRun");
+		assertThat(result.task(":bootRun").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+		assertThat(result.getOutput()).contains("com.example.main.CustomMainClass");
 	}
 
 	@TestTemplate
 	void applicationPluginMainClassNameIsUsed() throws IOException {
-		BuildResult result = this.gradleBuild.build("echoMainClassName");
-		assertThat(result.task(":echoMainClassName").getOutcome()).isEqualTo(TaskOutcome.UP_TO_DATE);
-		assertThat(result.getOutput()).contains("Main class name = com.example.CustomMainClass");
+		copyMainClassApplication();
+		BuildResult result = this.gradleBuild.build("bootRun");
+		assertThat(result.task(":bootRun").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+		assertThat(result.getOutput()).contains("com.example.main.CustomMainClass");
 	}
 
 	@TestTemplate
 	void applicationPluginMainClassNameIsNotUsedWhenItIsNull() throws IOException {
 		copyClasspathApplication();
-		BuildResult result = this.gradleBuild.build("echoMainClassName");
-		assertThat(result.task(":echoMainClassName").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+		BuildResult result = this.gradleBuild.build("bootRun");
+		assertThat(result.task(":bootRun").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
 		assertThat(result.getOutput()).contains("Main class name = com.example.classpath.BootRunClasspathApplication");
 	}
 
@@ -134,6 +135,10 @@ class BootRunIntegrationTests {
 		BuildResult result = this.gradleBuild.build("bootRun");
 		assertThat(result.task(":bootRun").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
 		assertThat(result.getOutput()).contains("standard.jar").doesNotContain("starter.jar");
+	}
+
+	private void copyMainClassApplication() throws IOException {
+		copyApplication("main");
 	}
 
 	private void copyClasspathApplication() throws IOException {

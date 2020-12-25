@@ -100,8 +100,9 @@ public class BuildImageMojo extends AbstractPackagerMojo {
 	private String classifier;
 
 	/**
-	 * Image configuration, with `builder`, `runImage`, `name`, `env`, `cleanCache` and
-	 * `verboseLogging` options.
+	 * Image configuration, with {@code builder}, {@code runImage}, {@code name},
+	 * {@code env}, {@code cleanCache}, {@code verboseLogging}, {@code pullPolicy}, and
+	 * {@code publish} options.
 	 * @since 2.3.0
 	 */
 	@Parameter
@@ -130,11 +131,25 @@ public class BuildImageMojo extends AbstractPackagerMojo {
 	String runImage;
 
 	/**
+	 * Alias for {@link Image#cleanCache} to support configuration via command-line
+	 * property.
+	 * @since 2.4.0
+	 */
+	@Parameter(property = "spring-boot.build-image.cleanCache", readonly = true)
+	Boolean cleanCache;
+
+	/**
 	 * Alias for {@link Image#pullPolicy} to support configuration via command-line
 	 * property.
 	 */
 	@Parameter(property = "spring-boot.build-image.pullPolicy", readonly = true)
 	PullPolicy pullPolicy;
+
+	/**
+	 * Alias for {@link Image#publish} to support configuration via command-line property.
+	 */
+	@Parameter(property = "spring-boot.build-image.publish", readonly = true)
+	Boolean publish;
 
 	/**
 	 * Docker configuration options.
@@ -170,7 +185,7 @@ public class BuildImageMojo extends AbstractPackagerMojo {
 		}
 	}
 
-	private BuildRequest getBuildRequest(Libraries libraries) {
+	private BuildRequest getBuildRequest(Libraries libraries) throws MojoExecutionException {
 		Function<Owner, TarArchive> content = (owner) -> getApplicationContent(owner, libraries);
 		Image image = (this.image != null) ? this.image : new Image();
 		if (image.name == null && this.imageName != null) {
@@ -182,10 +197,24 @@ public class BuildImageMojo extends AbstractPackagerMojo {
 		if (image.runImage == null && this.runImage != null) {
 			image.setRunImage(this.runImage);
 		}
+		if (image.cleanCache == null && this.cleanCache != null) {
+			image.setCleanCache(this.cleanCache);
+		}
 		if (image.pullPolicy == null && this.pullPolicy != null) {
 			image.setPullPolicy(this.pullPolicy);
 		}
+		if (image.publish == null && this.publish != null) {
+			image.setPublish(this.publish);
+		}
+		if (image.publish != null && image.publish && publishRegistryNotConfigured()) {
+			throw new MojoExecutionException("Publishing an image requires docker.publishRegistry to be configured");
+		}
 		return customize(image.getBuildRequest(this.project.getArtifact(), content));
+	}
+
+	private boolean publishRegistryNotConfigured() {
+		return this.docker == null || this.docker.getPublishRegistry() == null
+				|| this.docker.getPublishRegistry().isEmpty();
 	}
 
 	private TarArchive getApplicationContent(Owner owner, Libraries libraries) {
@@ -201,7 +230,11 @@ public class BuildImageMojo extends AbstractPackagerMojo {
 			name.append("-").append(this.classifier);
 		}
 		name.append(".jar");
-		return new File(this.sourceDirectory, name.toString());
+		File jarFile = new File(this.sourceDirectory, name.toString());
+		if (!jarFile.exists()) {
+			throw new IllegalStateException("Executable jar file required for building image");
+		}
+		return jarFile;
 	}
 
 	private BuildRequest customize(BuildRequest request) {

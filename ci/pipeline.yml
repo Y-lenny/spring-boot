@@ -4,7 +4,7 @@ anchors:
     username: ((github-username))
     password: ((github-password))
     branch: ((branch))
-  docker-resource-source: &docker-resource-source
+  registry-image-resource-source: &registry-image-resource-source
     username: ((docker-hub-username))
     password: ((docker-hub-password))
     tag: ((milestone))
@@ -12,10 +12,13 @@ anchors:
     GRADLE_ENTERPRISE_ACCESS_KEY: ((gradle_enterprise_secret_access_key))
     GRADLE_ENTERPRISE_CACHE_USERNAME: ((gradle_enterprise_cache_user.username))
     GRADLE_ENTERPRISE_CACHE_PASSWORD: ((gradle_enterprise_cache_user.password))
+  docker-hub-task-params: &docker-hub-task-params
+    DOCKER_HUB_USERNAME: ((docker-hub-username))
+    DOCKER_HUB_PASSWORD: ((docker-hub-password))
   github-task-params: &github-task-params
     GITHUB_REPO: spring-boot
     GITHUB_ORGANIZATION: spring-projects
-    GITHUB_PASSWORD: ((github-password))
+    GITHUB_PASSWORD: ((github-ci-release-token))
     GITHUB_USERNAME: ((github-username))
     MILESTONE: ((milestone))
   bintray-task-params: &bintray-task-params
@@ -30,6 +33,9 @@ anchors:
     ARTIFACTORY_SERVER: ((artifactory-server))
     ARTIFACTORY_USERNAME: ((artifactory-username))
     ARTIFACTORY_PASSWORD: ((artifactory-password))
+  sdkman-task-params: &sdkman-task-params
+    SDKMAN_CONSUMER_KEY: ((sdkman-consumer-key))
+    SDKMAN_CONSUMER_TOKEN: ((sdkman-consumer-token))
   build-project-task-params: &build-project-task-params
     privileged: true
     timeout: ((task-timeout))
@@ -37,6 +43,7 @@ anchors:
     params:
       BRANCH: ((branch))
       <<: *gradle-enterprise-task-params
+      <<: *docker-hub-task-params
   artifactory-repo-put-params: &artifactory-repo-put-params
     repo: libs-snapshot-local
     folder: distribution-repository
@@ -68,33 +75,34 @@ anchors:
     username: concourse-ci
 resource_types:
 - name: artifactory-resource
-  type: docker-image
+  type: registry-image
   source:
     repository: springio/artifactory-resource
     tag: 0.0.12
 - name: pull-request
-  type: docker-image
+  type: registry-image
   source:
     repository: teliaoss/github-pr-resource
+    tag: v0.21.0
 - name: github-status-resource
-  type: docker-image
+  type: registry-image
   source:
     repository: dpb587/github-status-resource
     tag: master
 - name: slack-notification
-  type: docker-image
+  type: registry-image
   source:
     repository: cfcommunity/slack-notification-resource
     tag: latest
 resources:
 - name: git-repo
   type: git
-  icon: github-circle
+  icon: github
   source:
     <<: *git-repo-resource-source
 - name: git-repo-windows
   type: git
-  icon: github-circle
+  icon: github
   source:
     <<: *git-repo-resource-source
     git_config:
@@ -127,29 +135,29 @@ resources:
     pre_release: false
 - name: ci-images-git-repo
   type: git
-  icon: github-circle
+  icon: github
   source:
     uri: ((github-repo))
     branch: ((branch))
     paths: ["ci/images/*"]
 - name: ci-image
-  type: docker-image
+  type: registry-image
   icon: docker
   source:
-    <<: *docker-resource-source
-    repository: ((docker-hub-organization))/((ci-image-name))
+    <<: *registry-image-resource-source
+    repository: ((docker-hub-organization))/spring-boot-ci
 - name: ci-image-jdk11
-  type: docker-image
+  type: registry-image
   icon: docker
   source:
-    <<: *docker-resource-source
-    repository: ((docker-hub-organization))/((ci-image-name))-jdk11
+    <<: *registry-image-resource-source
+    repository: ((docker-hub-organization))/spring-boot-ci-jdk11
 - name: ci-image-jdk15
-  type: docker-image
+  type: registry-image
   icon: docker
   source:
-    <<: *docker-resource-source
-    repository: ((docker-hub-organization))/((ci-image-name))-jdk15
+    <<: *registry-image-resource-source
+    repository: ((docker-hub-organization))/spring-boot-ci-jdk15
 - name: artifactory-repo
   type: artifactory-resource
   icon: package-variant
@@ -203,19 +211,39 @@ jobs:
   plan:
   - get: ci-images-git-repo
     trigger: true
+  - get: git-repo
+  - in_parallel:
+    - task: build-ci-image
+      privileged: true
+      file: git-repo/ci/tasks/build-ci-image.yml
+      output_mapping:
+        image: ci-image
+      vars:
+        ci-image-name: ci-image
+    - task: build-ci-image-jdk11
+      privileged: true
+      file: git-repo/ci/tasks/build-ci-image.yml
+      output_mapping:
+        image: ci-image-jdk11
+      vars:
+        ci-image-name: ci-image-jdk11
+    - task: build-ci-image-jdk15
+      privileged: true
+      file: git-repo/ci/tasks/build-ci-image.yml
+      output_mapping:
+        image: ci-image-jdk15
+      vars:
+        ci-image-name: ci-image-jdk15
   - in_parallel:
     - put: ci-image
       params:
-        build: ci-images-git-repo/ci/images
-        dockerfile: ci-images-git-repo/ci/images/ci-image/Dockerfile
+        image: ci-image/image.tar
     - put: ci-image-jdk11
       params:
-        build: ci-images-git-repo/ci/images
-        dockerfile: ci-images-git-repo/ci/images/ci-image-jdk11/Dockerfile
+        image: ci-image-jdk11/image.tar
     - put: ci-image-jdk15
       params:
-        build: ci-images-git-repo/ci/images
-        dockerfile: ci-images-git-repo/ci/images/ci-image-jdk15/Dockerfile
+        image: ci-image-jdk15/image.tar
 - name: detect-jdk-updates
   plan:
   - get: git-repo
@@ -415,6 +443,7 @@ jobs:
     params:
       RELEASE_TYPE: M
       <<: *gradle-enterprise-task-params
+      <<: *docker-hub-task-params
   - put: artifactory-repo
     params:
       <<: *artifactory-repo-put-params
@@ -434,6 +463,7 @@ jobs:
     params:
       RELEASE_TYPE: RC
       <<: *gradle-enterprise-task-params
+      <<: *docker-hub-task-params
   - put: artifactory-repo
     params:
       <<: *artifactory-repo-put-params
@@ -453,6 +483,7 @@ jobs:
     params:
       RELEASE_TYPE: RELEASE
       <<: *gradle-enterprise-task-params
+      <<: *docker-hub-task-params
   - put: artifactory-repo
     params:
       <<: *artifactory-repo-put-params
@@ -478,17 +509,17 @@ jobs:
     params:
       RELEASE_TYPE: M
       <<: *artifactory-task-params
-  - task: generate-release-notes
-    file: git-repo/ci/tasks/generate-release-notes.yml
+  - task: generate-changelog
+    file: git-repo/ci/tasks/generate-changelog.yml
     params:
       RELEASE_TYPE: M
       GITHUB_USERNAME: ((github-username))
       GITHUB_TOKEN: ((github-ci-release-token))
   - put: github-pre-release
     params:
-      name: generated-release-notes/tag
-      tag: generated-release-notes/tag
-      body: generated-release-notes/release-notes.md
+      name: generated-changelog/tag
+      tag: generated-changelog/tag
+      body: generated-changelog/changelog.md
 - name: promote-rc
   serial: true
   plan:
@@ -507,17 +538,17 @@ jobs:
     params:
       RELEASE_TYPE: RC
       <<: *artifactory-task-params
-  - task: generate-release-notes
-    file: git-repo/ci/tasks/generate-release-notes.yml
+  - task: generate-changelog
+    file: git-repo/ci/tasks/generate-changelog.yml
     params:
       RELEASE_TYPE: RC
       GITHUB_USERNAME: ((github-username))
       GITHUB_TOKEN: ((github-ci-release-token))
   - put: github-pre-release
     params:
-      name: generated-release-notes/tag
-      tag: generated-release-notes/tag
-      body: generated-release-notes/release-notes.md
+      name: generated-changelog/tag
+      tag: generated-changelog/tag
+      body: generated-changelog/changelog.md
 - name: promote-release
   serial: true
   plan:
@@ -554,22 +585,40 @@ jobs:
     params:
       <<: *bintray-task-params
       <<: *sonatype-task-params
-  - task: generate-release-notes
-    file: git-repo/ci/tasks/generate-release-notes.yml
+  - task: generate-changelog
+    file: git-repo/ci/tasks/generate-changelog.yml
     params:
       RELEASE_TYPE: RELEASE
       GITHUB_USERNAME: ((github-username))
       GITHUB_TOKEN: ((github-ci-release-token))
   - put: github-release
     params:
-      name: generated-release-notes/tag
-      tag: generated-release-notes/tag
-      body: generated-release-notes/release-notes.md
+      name: generated-changelog/tag
+      tag: generated-changelog/tag
+      body: generated-changelog/changelog.md
+- name: publish-to-sdkman
+  serial: true
+  plan:
+    - get: ci-image
+    - get: git-repo
+    - get: artifactory-repo
+      passed: [sync-to-maven-central]
+      params:
+        download_artifacts: false
+        save_build_info: true
+    - task: publish-to-sdkman
+      image: ci-image
+      file: git-repo/ci/tasks/publish-to-sdkman.yml
+      params:
+        <<: *sdkman-task-params
+        RELEASE_TYPE: RELEASE
+        BRANCH: ((branch))
+        LATEST_GA: false
 groups:
 - name: "builds"
   jobs: ["build", "jdk11-build", "jdk15-build", "windows-build"]
 - name: "releases"
-  jobs: ["stage-milestone", "stage-rc", "stage-release", "promote-milestone", "promote-rc", "promote-release", "sync-to-maven-central"]
+  jobs: ["stage-milestone", "stage-rc", "stage-release", "promote-milestone", "promote-rc", "promote-release", "sync-to-maven-central", "publish-to-sdkman"]
 - name: "ci-images"
   jobs: ["build-ci-images", "detect-docker-updates", "detect-jdk-updates", "detect-ubuntu-image-updates"]
 - name: "pull-requests"
