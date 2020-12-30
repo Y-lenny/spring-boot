@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    druid: # druid 数据源配置
+      url: jdbc:mysql://lvyongwen-win.vmic.xyz:3306/example
+      username: root
+      password: root
+      driver-class-name: com.mysql.jdbc.Driver

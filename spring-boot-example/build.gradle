@@ -6,5 +6,17 @@ plugins {
 description = "Spring Boot Example"
 
 dependencies {
+    implementation(project(":spring-boot-project:spring-boot-starters:spring-boot-starter-jdbc"))
     implementation(project(":spring-boot-project:spring-boot-starters:spring-boot-starter-web"))
+
+    annotationProcessor 'org.projectlombok:lombok:1.18.16'
+
+    compile 'com.alibaba:druid-spring-boot-starter:1.1.17'
+    compile group: 'com.baomidou', name: 'mybatis-plus-boot-starter', version: '3.4.1'
+    compileOnly 'org.projectlombok:lombok:1.18.16'
+    compile group: 'javax.validation', name: 'validation-api', version: '2.3.2'
+    compile group: 'org.hibernate', name: 'hibernate-validator', version: '7.0.0.Final'
+
+    testCompileOnly 'org.projectlombok:lombok:1.18.16'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.16'
 }
