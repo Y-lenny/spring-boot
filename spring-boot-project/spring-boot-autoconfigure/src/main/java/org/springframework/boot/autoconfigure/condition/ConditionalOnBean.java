@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Conditional;
  * requirements are already contained in the {@link BeanFactory}. All the requirements
  * must be met for the condition to match, but they do not have to be met by the same
  * bean.
+ * {@link Conditional @Conditional} 标示只有当指定的所有bean全部包含在{@link BeanFactory}才会算满足设置条件。
  * <p>
  * When placed on a {@code @Bean} method, the bean class defaults to the return type of
  * the factory method:

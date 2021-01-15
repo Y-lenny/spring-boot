@@ -6,16 +6,34 @@ plugins {
 description = "Spring Boot Example"
 
 dependencies {
-    implementation(project(":spring-boot-project:spring-boot-starters:spring-boot-starter-jdbc"))
+    // JDBC 事务管理
+    implementation(project(":spring-boot-project:spring-boot-starters:spring-boot-starter-jdbc")) {
+        // 排除HikariCP数据源
+        exclude group: 'com.zaxxer', module: 'HikariCP'
+    }
+    // SpringMVC
     implementation(project(":spring-boot-project:spring-boot-starters:spring-boot-starter-web"))
 
-    annotationProcessor 'org.projectlombok:lombok:1.18.16'
+    // druid 数据源
+    compile('com.alibaba:druid-spring-boot-starter:1.1.17') {
+        // 排除spring-boot-autoconfigure依赖
+        exclude group: 'org.springframework.boot', module: 'spring-boot-autoconfigure'
+    }
+    // mysql 客户端
+    compile group: 'mysql', name: 'mysql-connector-java', version: '8.0.22'
 
-    compile 'com.alibaba:druid-spring-boot-starter:1.1.17'
-    compile group: 'com.baomidou', name: 'mybatis-plus-boot-starter', version: '3.4.1'
+    // mybatis plus 框架
+    compile('com.baomidou:mybatis-plus-boot-starter:3.4.1') {
+        // 排除spring-boot-autoconfigure依赖
+        exclude group: 'org.springframework.boot', module: 'spring-boot-autoconfigure'
+    }
+
+    // 工具依赖：lombok，validate
+    annotationProcessor 'org.projectlombok:lombok:1.18.16'
     compileOnly 'org.projectlombok:lombok:1.18.16'
     compile group: 'javax.validation', name: 'validation-api', version: '2.3.2'
     compile group: 'org.hibernate', name: 'hibernate-validator', version: '7.0.0.Final'
+    implementation(project(":spring-boot-project:spring-boot-devtools"))
 
     testCompileOnly 'org.projectlombok:lombok:1.18.16'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.16'

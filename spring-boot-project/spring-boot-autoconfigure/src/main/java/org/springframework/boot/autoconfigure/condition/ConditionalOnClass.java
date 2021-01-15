@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Conditional;
 /**
  * {@link Conditional @Conditional} that only matches when the specified classes are on
  * the classpath.
+ * {@link Conditional @Conditional} 标示所有指定的类全部在classpath目录下才叫满足条件。
  * <p>
  * A {@link #value()} can be safely specified on {@code @Configuration} classes as the
  * annotation metadata is parsed by using ASM before the class is loaded. Extra care is

@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Conditional;
  * requirements are already contained in the {@link BeanFactory}. None of the requirements
  * must be met for the condition to match and the requirements do not have to be met by
  * the same bean.
+ *
  * <p>
  * When placed on a {@code @Bean} method, the bean class defaults to the return type of
  * the factory method:
