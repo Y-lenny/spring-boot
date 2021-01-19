@@ -29,7 +29,8 @@ import org.springframework.context.annotation.Import;
  * Registers packages with {@link AutoConfigurationPackages}. When no {@link #basePackages
  * base packages} or {@link #basePackageClasses base package classes} are specified, the
  * package of the annotated class is registered.
- *
+ * 通过{@link AutoConfigurationPackages}注册包目录. 当没有指定{@link #basePackages},{@link #basePackageClasses}
+ * 内容，则加了{@link AutoConfigurationPackages}注解的包就全部会注册.
  * @author Phillip Webb
  * @since 1.3.0
  * @see AutoConfigurationPackages

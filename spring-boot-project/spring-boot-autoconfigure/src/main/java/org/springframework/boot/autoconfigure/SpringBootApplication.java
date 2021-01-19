@@ -42,7 +42,9 @@ import org.springframework.data.repository.Repository;
  * auto-configuration} and {@link ComponentScan component scanning}. This is a convenience
  * annotation that is equivalent to declaring {@code @Configuration},
  * {@code @EnableAutoConfiguration} and {@code @ComponentScan}.
- *
+ * 表示一个{@link Configuration 配置}类声明一个或多个{@link Bean @Bean}方法，并且也会触发
+ * {@link EnableAutoConfiguration 自动配置} and {@link ComponentScan 组建扫描}. 这是一个便捷的注解
+ * 等同于{@code @Configuration},{@code @EnableAutoConfiguration} and {@code @ComponentScan}.
  * @author Phillip Webb
  * @author Stephane Nicoll
  * @author Andy Wilkinson

@@ -40,6 +40,9 @@ import org.springframework.core.io.support.SpringFactoriesLoader;
  * have {@code tomcat-embedded.jar} on your classpath you are likely to want a
  * {@link TomcatServletWebServerFactory} (unless you have defined your own
  * {@link ServletWebServerFactory} bean).
+ * 启动Spring应用自动配置上下文，试着理解和配置你需要的实例. 自动配置类基本针对你的classpath和你定义的bean生效.
+ * 比如你classpath下面有个{@code tomcat-embedded.jar}那么自动配置就会认为你想要个{@link TomcatServletWebServerFactory}
+ * (除非你已经定义了自己的{@link ServletWebServerFactory}实例.)
  * <p>
  * When using {@link SpringBootApplication @SpringBootApplication}, the auto-configuration
  * of the context is automatically enabled and adding this annotation has therefore no

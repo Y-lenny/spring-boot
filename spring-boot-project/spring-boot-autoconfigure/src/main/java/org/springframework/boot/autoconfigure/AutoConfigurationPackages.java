@@ -42,7 +42,7 @@ import org.springframework.util.StringUtils;
 /**
  * Class for storing auto-configuration packages for reference later (e.g. by JPA entity
  * scanner).
- *
+ * 这个类是用来存储自动配置包目录内容的.
  * @author Phillip Webb
  * @author Dave Syer
  * @author Oliver Gierke
@@ -105,7 +105,7 @@ public abstract class AutoConfigurationPackages {
 	 * configuration.
 	 */
 	static class Registrar implements ImportBeanDefinitionRegistrar, DeterminableImports {
-
+		// 通过使用PackageImports解析出来的包目录信息来注册bean定义
 		@Override
 		public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 			register(registry, new PackageImports(metadata).getPackageNames().toArray(new String[0]));
@@ -126,6 +126,7 @@ public abstract class AutoConfigurationPackages {
 		private final List<String> packageNames;
 
 		PackageImports(AnnotationMetadata metadata) {
+			// 解析 AutoConfigurationPackage 类的 basePackages、basePackageClasses 属性
 			AnnotationAttributes attributes = AnnotationAttributes
 					.fromMap(metadata.getAnnotationAttributes(AutoConfigurationPackage.class.getName(), false));
 			List<String> packageNames = new ArrayList<>(Arrays.asList(attributes.getStringArray("basePackages")));

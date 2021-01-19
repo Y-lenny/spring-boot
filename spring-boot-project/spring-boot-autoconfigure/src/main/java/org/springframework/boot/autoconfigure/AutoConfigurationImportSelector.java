@@ -112,6 +112,7 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 	/**
 	 * Return the {@link AutoConfigurationEntry} based on the {@link AnnotationMetadata}
 	 * of the importing {@link Configuration @Configuration} class.
+	 * 返回 AutoConfigurationEntry，来导入 @Configuration 类。
 	 * @param annotationMetadata the annotation metadata of the configuration class
 	 * @return the auto-configurations that should be imported
 	 */
@@ -119,13 +120,19 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 		if (!isEnabled(annotationMetadata)) {
 			return EMPTY_ENTRY;
 		}
+		// 获取属性
 		AnnotationAttributes attributes = getAttributes(annotationMetadata);
+		// 获取候选配置类，从 "META-INF/spring.factories 文件中读取
 		List<String> configurations = getCandidateConfigurations(annotationMetadata, attributes);
+		// 移除重复的配置类
 		configurations = removeDuplicates(configurations);
+		// 获取要排除的类
 		Set<String> exclusions = getExclusions(annotationMetadata, attributes);
 		checkExcludedClasses(configurations, exclusions);
 		configurations.removeAll(exclusions);
+		// 过滤
 		configurations = getConfigurationClassFilter().filter(configurations);
+		// 发布导入事件
 		fireAutoConfigurationImportEvents(configurations, exclusions);
 		return new AutoConfigurationEntry(configurations, exclusions);
 	}
@@ -169,6 +176,7 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 	 * Return the auto-configuration class names that should be considered. By default
 	 * this method will load candidates using {@link SpringFactoriesLoader} with
 	 * {@link #getSpringFactoriesLoaderFactoryClass()}.
+	 * 加载工厂类，通过读取 META-INF/spring.factories 文件来加载。
 	 * @param metadata the source metadata
 	 * @param attributes the {@link #getAttributes(AnnotationMetadata) annotation
 	 * attributes}
