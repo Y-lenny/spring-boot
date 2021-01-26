@@ -52,7 +52,7 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for servlet web servers.
- *
+ * @Import(...) 导入 web 服务工厂后置处理器、内嵌的 Tomcat、jetty、undertow 服务
  * @author Phillip Webb
  * @author Dave Syer
  * @author Ivan Sopov
@@ -97,6 +97,7 @@ public class ServletWebServerFactoryAutoConfiguration {
 	}
 
 	/**
+	 * 注册 web 服务工厂自定义器后置处理器、错误页面注册后置处理器
 	 * Registers a {@link WebServerFactoryCustomizerBeanPostProcessor}. Registered via
 	 * {@link ImportBeanDefinitionRegistrar} for early registration.
 	 */
@@ -117,9 +118,11 @@ public class ServletWebServerFactoryAutoConfiguration {
 			if (this.beanFactory == null) {
 				return;
 			}
+			// 注册 WebServerFactoryCustomizerBeanPostProcessor web 工厂自定义器后置处理器
 			registerSyntheticBeanIfMissing(registry, "webServerFactoryCustomizerBeanPostProcessor",
 					WebServerFactoryCustomizerBeanPostProcessor.class,
 					WebServerFactoryCustomizerBeanPostProcessor::new);
+			// 注册 ErrorPageRegistrarBeanPostProcessor 错误页面注册器后置处理器
 			registerSyntheticBeanIfMissing(registry, "errorPageRegistrarBeanPostProcessor",
 					ErrorPageRegistrarBeanPostProcessor.class, ErrorPageRegistrarBeanPostProcessor::new);
 		}

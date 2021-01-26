@@ -47,6 +47,7 @@ import org.springframework.core.env.Environment;
 public class EmbeddedWebServerFactoryCustomizerAutoConfiguration {
 
 	/**
+	 * 默认使用 Tomcat配置
 	 * Nested configuration if Tomcat is being used.
 	 */
 	@Configuration(proxyBeanMethods = false)
@@ -56,12 +57,14 @@ public class EmbeddedWebServerFactoryCustomizerAutoConfiguration {
 		@Bean
 		public TomcatWebServerFactoryCustomizer tomcatWebServerFactoryCustomizer(Environment environment,
 				ServerProperties serverProperties) {
+			// 配置 tomcat web 服务工厂自定义器
 			return new TomcatWebServerFactoryCustomizer(environment, serverProperties);
 		}
 
 	}
 
 	/**
+	 * jetty 服务配置
 	 * Nested configuration if Jetty is being used.
 	 */
 	@Configuration(proxyBeanMethods = false)
@@ -77,6 +80,7 @@ public class EmbeddedWebServerFactoryCustomizerAutoConfiguration {
 	}
 
 	/**
+	 * Undertow 服务
 	 * Nested configuration if Undertow is being used.
 	 */
 	@Configuration(proxyBeanMethods = false)
@@ -92,6 +96,7 @@ public class EmbeddedWebServerFactoryCustomizerAutoConfiguration {
 	}
 
 	/**
+	 * Netty 内嵌服务
 	 * Nested configuration if Netty is being used.
 	 */
 	@Configuration(proxyBeanMethods = false)

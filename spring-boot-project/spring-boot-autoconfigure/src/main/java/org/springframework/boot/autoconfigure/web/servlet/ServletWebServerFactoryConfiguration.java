@@ -63,6 +63,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class ServletWebServerFactoryConfiguration {
 
+	/**
+	 * 内嵌的 Tomcat 服务工厂
+	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnClass({ Servlet.class, Tomcat.class, UpgradeProtocol.class })
 	@ConditionalOnMissingBean(value = ServletWebServerFactory.class, search = SearchStrategy.CURRENT)
@@ -73,11 +76,15 @@ class ServletWebServerFactoryConfiguration {
 				ObjectProvider<TomcatConnectorCustomizer> connectorCustomizers,
 				ObjectProvider<TomcatContextCustomizer> contextCustomizers,
 				ObjectProvider<TomcatProtocolHandlerCustomizer<?>> protocolHandlerCustomizers) {
+			// 工厂
 			TomcatServletWebServerFactory factory = new TomcatServletWebServerFactory();
+			// 连接器自定义器
 			factory.getTomcatConnectorCustomizers()
 					.addAll(connectorCustomizers.orderedStream().collect(Collectors.toList()));
+			// 上下文自定义器
 			factory.getTomcatContextCustomizers()
 					.addAll(contextCustomizers.orderedStream().collect(Collectors.toList()));
+			// 协议处理器自定义器
 			factory.getTomcatProtocolHandlerCustomizers()
 					.addAll(protocolHandlerCustomizers.orderedStream().collect(Collectors.toList()));
 			return factory;

@@ -40,6 +40,8 @@ public interface ApplicationContextFactory {
 	/**
 	 * A default {@link ApplicationContextFactory} implementation that will create an
 	 * appropriate context for the {@link WebApplicationType}.
+	 * 一个默认的{@link ApplicationContextFactory}实现类，这个类根据提供的{@link WebApplicationType}
+	 * 创建一个合适的上下文实例.
 	 */
 	ApplicationContextFactory DEFAULT = (webApplicationType) -> {
 		try {

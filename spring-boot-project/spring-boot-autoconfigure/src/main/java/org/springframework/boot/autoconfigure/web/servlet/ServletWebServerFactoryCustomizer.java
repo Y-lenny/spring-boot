@@ -27,6 +27,7 @@ import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerF
 import org.springframework.core.Ordered;
 
 /**
+ * web 服务工厂自定义器
  * {@link WebServerFactoryCustomizer} to apply {@link ServerProperties} to servlet web
  * servers.
  *
@@ -58,6 +59,10 @@ public class ServletWebServerFactoryCustomizer
 		return 0;
 	}
 
+	/**
+	 * 自定义 WebServerFactory 实例，上述逻辑对服务工厂进行了属性设置.
+	 * @param factory the web server factory to customize
+	 */
 	@Override
 	public void customize(ConfigurableServletWebServerFactory factory) {
 		PropertyMapper map = PropertyMapper.get().alwaysApplyingWhenNonNull();

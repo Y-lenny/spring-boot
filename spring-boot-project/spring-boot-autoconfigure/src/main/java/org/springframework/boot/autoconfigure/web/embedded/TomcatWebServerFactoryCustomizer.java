@@ -75,6 +75,10 @@ public class TomcatWebServerFactoryCustomizer
 		return 0;
 	}
 
+	/**
+	 * 配置Tomcat参数
+	 * @param factory the web server factory to customize
+	 */
 	@Override
 	public void customize(ConfigurableTomcatWebServerFactory factory) {
 		ServerProperties properties = this.serverProperties;
@@ -258,6 +262,7 @@ public class TomcatWebServerFactoryCustomizer
 		ServerProperties.Tomcat tomcatProperties = this.serverProperties.getTomcat();
 		AccessLogValve valve = new AccessLogValve();
 		PropertyMapper map = PropertyMapper.get();
+		// 访问日志
 		Accesslog accessLogConfig = tomcatProperties.getAccesslog();
 		map.from(accessLogConfig.getConditionIf()).to(valve::setConditionIf);
 		map.from(accessLogConfig.getConditionUnless()).to(valve::setConditionUnless);
@@ -278,8 +283,14 @@ public class TomcatWebServerFactoryCustomizer
 		factory.addEngineValves(valve);
 	}
 
+	/**
+	 * 自定义静态资源
+	 * @param factory
+	 */
 	private void customizeStaticResources(ConfigurableTomcatWebServerFactory factory) {
+		// 获取资源
 		ServerProperties.Tomcat.Resource resource = this.serverProperties.getTomcat().getResource();
+		// 添加 TomcatContextCustomizer 上下文自定义器
 		factory.addContextCustomizers((context) -> context.addLifecycleListener((event) -> {
 			if (event.getType().equals(Lifecycle.CONFIGURE_START_EVENT)) {
 				context.getResources().setCachingAllowed(resource.isAllowCaching());
@@ -293,6 +304,7 @@ public class TomcatWebServerFactoryCustomizer
 
 	private void customizeErrorReportValve(ErrorProperties error, ConfigurableTomcatWebServerFactory factory) {
 		if (error.getIncludeStacktrace() == IncludeAttribute.NEVER) {
+			// 添加 TomcatContextCustomizer 上下文自定义器
 			factory.addContextCustomizers((context) -> {
 				ErrorReportValve valve = new ErrorReportValve();
 				valve.setShowServerInfo(false);

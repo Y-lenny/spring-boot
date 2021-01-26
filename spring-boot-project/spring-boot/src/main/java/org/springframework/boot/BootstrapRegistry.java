@@ -26,10 +26,12 @@ import org.springframework.util.Assert;
 /**
  * A simple object registry that is available during startup and {@link Environment}
  * post-processing up to the point that the {@link ApplicationContext} is prepared.
+ * 一个简单的对象注册表有效期是启动和{@link Environment}后置处理过程到{@link ApplicationContext}已经准备好为止.
  * <p>
  * Can be used to register instances that may be expensive to create, or need to be shared
  * before the {@link ApplicationContext} is available.
  * <p>
+ * 这个注册使用{@link Class}作为key，意思是存储的是给定类型的一个实例.
  * The registry uses {@link Class} as a key, meaning that only a single instance of a
  * given type can be stored.
  * <p>
