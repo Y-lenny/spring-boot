@@ -1,0 +1,112 @@
+package org.example.rules
+import org.springframework.boot.example.entity.People
+import org.springframework.boot.example.entity.Animal
+import java.util.List
+dialect  "java"
+// 全局变量
+global java.util.List list
+
+/*没有约束的匹配模式*/
+rule "type"
+    when
+        People()
+    then
+        System.out.println("girl规则执行");
+end
+
+/*匹配并绑定属性以及实事*/
+rule "bind"
+    when
+        $p : People(sex == 1 && drlType == "people")
+    then
+        System.out.println($p.getName() + "是男孩");
+end
+
+/*约束*/
+rule "constraint"
+    when
+        People( sex matches "[1|0]" )
+     then
+        System.out.println("达match上了");
+end
+
+/*遍历*/
+rule "from"
+    when
+        $an : Animal()
+        $p  : People(sex != 3 && drlType == "from") from $an.peoples
+    then
+        System.out.printf("集合遍历" + $p);
+     end
+
+/*集合*/
+rule "collect"
+    when
+        $alarms :List( size >= 0 ) from collect(People(sex != 3 && drlType == "collect"))
+    then
+        System.out.println("collect执行成功，匹配结果为："+$alarms);
+     end
+
+/*遍历*/
+rule "accumulate"
+    when
+        $avg : Number() from accumulate (Animal(level > 1 && $temp : level),average($temp))
+        then
+        System.out.println("accumulate成功执行，平均值" + $avg);
+    end
+
+/*rhs-update*/
+rule "update1"
+    when
+        $p : People(drlType == "update" && sex == 0)
+    then
+        System.out.println("update1更新sex");
+        $p.setSex(1);
+        update($p)
+     end
+
+rule "modify"
+    when
+        $p : People(drlType == 'update' && sex == 1)
+     then
+        modify($p){
+            setSex(2)
+        }
+     end
+
+rule "update2"
+    when
+        $p : People(drlType == "update" && sex == 2)
+    then
+        System.out.println("update2的sex值" + $p);
+     end
+
+/*header-global*/
+rule "global"
+    when
+        $p : People(drlType == "global" && sex == 1)
+    then
+        list.add($p);
+        System.out.println("global 定义" + list);
+     end
+
+/*querys*/
+query "queryPeople" (String $name,Integer $sex)
+    $p : People(name == $name && sex == $sex)
+end
+
+/*declare*/
+declare Love
+    feel : String
+    continue : String
+end
+rule "declare"
+    when
+        $l : Love()
+    then
+        System.out.println("自定义事件执行" + $l);
+     end
+
+
+
+

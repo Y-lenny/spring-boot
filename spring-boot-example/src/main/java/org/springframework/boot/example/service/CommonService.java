@@ -11,4 +11,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 1.0
  */
 public interface CommonService<T> extends IService<T> {
+
+
 }
